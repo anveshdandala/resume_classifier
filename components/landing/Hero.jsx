@@ -1,5 +1,5 @@
-
 import React from 'react';
+import Link from 'next/link';
 
 const Hero = () => {
   return (
@@ -26,12 +26,12 @@ const Hero = () => {
         </p>
         
         <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-          <button className="w-full sm:w-auto px-8 py-4 bg-primary-600 hover:bg-primary-500 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-xl shadow-primary-900/40">
+          <Link href="/applicant" className="w-full sm:w-auto px-8 py-4 bg-primary-600 hover:bg-primary-500 text-white rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-xl shadow-primary-900/40">
             Get Resume Score
-          </button>
-          <button className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-bold text-lg transition-all">
+          </Link>
+          <Link href="/recruiter" className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-bold text-lg transition-all">
             Recruiter Dashboard
-          </button>
+          </Link>
         </div>
 
         {/* Dashboard Mockup Preview */}
