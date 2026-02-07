@@ -1,7 +1,9 @@
 import GlassCard from './GlassCard';
-
+import process from 'process';
+import Link from 'next/link';
 const UploadGate = ({ isOpen, onClose, message }) => {
   if (!isOpen) return null;
+
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
@@ -18,21 +20,19 @@ const UploadGate = ({ isOpen, onClose, message }) => {
           <div className="flex flex-col gap-3">
             <button 
               className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all"
-              onClick={() => window.location.reload()}
             >
-              Log In
+              <Link href="/auth/login">Log In</Link>
             </button>
             <button 
               className="w-full py-3 bg-white/5 hover:bg-white/10 text-white font-semibold rounded-xl border border-white/10 transition-all"
-              onClick={() => window.location.reload()}
             >
-              Sign Up
+              <Link href="/auth/signup">Sign Up</Link>
             </button>
             <button 
               className="mt-2 text-sm text-slate-500 hover:text-slate-300"
               onClick={onClose}
             >
-              Maybe later
+              <Link href="/">Maybe later</Link>
             </button>
           </div>
         </div>

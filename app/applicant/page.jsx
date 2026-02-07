@@ -3,9 +3,20 @@ import React, { useState } from 'react';
 import GlassCard from '@/components/dashboard/GlassCard';
 import UploadGate from '@/components/dashboard/UploadGate';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import { useAuth } from "@/components/context/AuthContext";
 
 const ApplicantPage = () => {
   const [isGateOpen, setIsGateOpen] = useState(false);
+  const { user } = useAuth();
+
+  const handleUploadClick = () => {
+    if (!user) {
+      setIsGateOpen(true);
+      return;
+    }
+    // Upload flow can be wired here when available.
+  };
+   
 
   return (
     <DashboardLayout>
@@ -34,7 +45,7 @@ const ApplicantPage = () => {
 
         <GlassCard 
           className="p-16 border-dashed border-white/20 hover:border-blue-500/50 transition-all cursor-pointer group bg-blue-600/5" 
-          onClick={() => setIsGateOpen(true)}
+          onClick={handleUploadClick}
         >
           <div className="flex flex-col items-center justify-center space-y-6">
             <div className="w-24 h-24 bg-blue-600/10 rounded-full flex items-center justify-center group-hover:scale-110 group-hover:bg-blue-600/20 transition-all duration-500">

@@ -4,6 +4,7 @@ import GlassCard from '@/components/dashboard/GlassCard';
 import UploadGate from '@/components/dashboard/UploadGate';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { MOCK_CANDIDATES, SKILL_OPTIONS } from './constants';
+import { useAuth } from '@/components/context/AuthContext';
 
 const RecruiterPage = () => {
   const [isGateOpen, setIsGateOpen] = useState(false);
@@ -17,6 +18,9 @@ const RecruiterPage = () => {
       return matchSkill && matchScore;
     });
   }, [filterSkill, minScore]);
+
+  const { user } = useAuth();
+  console.log(user);
 
   return (
     <DashboardLayout>
