@@ -17,9 +17,9 @@ const LoginPage = () => {
     e.preventDefault();
     setError("");
     console.log("Logging in with:", { email, password });
-    console.log("sending login data");
+
     const url = `${process.env.NEXT_PUBLIC_API_URL}/auth/login`;
-    console.log("Fetching URL:", url);
+
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -31,7 +31,7 @@ const LoginPage = () => {
       const data = await res.json();
       console.log("Login response:", data);
       login(data);
-      if (data.role === "RECRUITER") {
+      if (data.user.role === "RECRUITER") {
         router.push("/recruiter");
       } else {
         router.push("/applicant");

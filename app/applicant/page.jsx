@@ -8,7 +8,8 @@ const ApplicantPage = () => {
   const [isGateOpen, setIsGateOpen] = useState(false);
   const [file, setFile] = useState(null);
   const [fileContent, setFileContent] = useState("");
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+
   const fileInputRef = useRef(null);
 
   const handleUploadClick = () => {
@@ -24,26 +25,34 @@ const ApplicantPage = () => {
     if (!uploadedFile) return;
 
     setFile(uploadedFile);
+
+    const formData = new FormData();
+    formData.append("resume", uploadedFile);
+
     try {
+      console.log("Uploading file with token:", token);
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/resume/upload`,
         {
           method: "POST",
-          body: uploadedFile,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
         },
       );
+
       if (response.ok) {
-        setMessage("File uploaded successfully!");
-        setFile(null); // Clear the selected file input
+        const data = await response.json();
+        console.log("Upload success:", data);
+        setFile(null);
       } else {
-        setMessage("File upload failed.");
+        console.log("Upload failed");
       }
     } catch (error) {
       console.error("Error uploading file:", error);
-      setMessage("Error uploading file.");
     }
 
-    // Read file content
     const reader = new FileReader();
     reader.onload = (event) => {
       setFileContent(event.target?.result || "");
