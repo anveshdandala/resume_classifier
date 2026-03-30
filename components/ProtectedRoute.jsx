@@ -9,21 +9,24 @@ export default function ProtectedRoute({ children }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
+  if (!loading) {
+    
+    if (pathname.startsWith("/auth")) return;
+
+    if (!user) {
+      router.replace("/auth/login");
+    } else {
+      if (pathname.startsWith("/recruiter") && user.role !== "RECRUITER") {
         router.replace("/auth/login");
-      } else {
-        if (pathname.startsWith("/recruiter") && user.role !== "RECRUITER") {
-          router.replace("/auth/login");
-        } else if (
-          pathname.startsWith("/applicant") &&
-          user.role !== "APPLICANT"
-        ) {
-          router.replace("/auth/login");
-        }
+      } else if (
+        pathname.startsWith("/applicant") &&
+        user.role !== "APPLICANT"
+      ) {
+        router.replace("/auth/login");
       }
     }
-  }, [user, loading, router, pathname]);
+  }
+}, [user, loading, router, pathname]);
 
   if (loading || !user) {
     return <p>Checking authentication...</p>;

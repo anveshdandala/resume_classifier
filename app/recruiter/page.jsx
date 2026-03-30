@@ -1,26 +1,52 @@
 "use client"
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import GlassCard from '@/components/dashboard/GlassCard';
-import UploadGate from '@/components/dashboard/UploadGate';
+import UploadModal from '@/components/dashboard/UploadModal';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import { MOCK_CANDIDATES, SKILL_OPTIONS } from './constants';
+import { SKILL_OPTIONS } from './constants';
 import { useAuth } from '@/components/context/AuthContext';
 
 const RecruiterPage = () => {
-  const [isGateOpen, setIsGateOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [filterSkill, setFilterSkill] = useState('All Skills');
   const [minScore, setMinScore] = useState(0);
+  const [resumes, setResumes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const { user, token } = useAuth();
+
+  const fetchResumes = async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/resume/my`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setResumes(data.length > 0 ? data : []);
+      }
+    } catch (err) {
+      console.error("Error fetching resumes:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (token) {
+      fetchResumes();
+    }
+  }, [token]);
 
   const filteredCandidates = useMemo(() => {
-    return MOCK_CANDIDATES.filter(c => {
-      const matchSkill = filterSkill === 'All Skills' || c.skills.includes(filterSkill);
-      const matchScore = c.atsScore >= minScore;
+    return resumes.filter(c => {
+      const cSkills = Array.isArray(c.skills) ? c.skills : [];
+      const matchSkill = filterSkill === 'All Skills' || cSkills.includes(filterSkill);
+      const matchScore = (c.atsScore || 0) >= minScore;
       return matchSkill && matchScore;
     });
-  }, [filterSkill, minScore]);
-
-  const { user } = useAuth();
-  console.log(user);
+  }, [filterSkill, minScore, resumes]);
 
   return (
     <DashboardLayout>
@@ -31,7 +57,7 @@ const RecruiterPage = () => {
             <p className="text-slate-400 mt-1">Manage and analyze your candidate pipeline with AI.</p>
           </div>
           <button 
-            onClick={() => setIsGateOpen(true)}
+            onClick={() => setIsUploadModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -46,15 +72,17 @@ const RecruiterPage = () => {
           <GlassCard hoverEffect>
             <p className="text-slate-400 text-sm font-medium">Total Resumes</p>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-white">1,248</span>
-              <span className="text-green-400 text-sm font-semibold">+12%</span>
+              <span className="text-4xl font-bold text-white">{resumes.length}</span>
+              <span className="text-green-400 text-sm font-semibold">Loaded</span>
             </div>
           </GlassCard>
           <GlassCard hoverEffect>
             <p className="text-slate-400 text-sm font-medium">Avg. ATS Score</p>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-white">78%</span>
-              <span className="text-blue-400 text-sm font-semibold">Healthy</span>
+              <span className="text-4xl font-bold text-white">
+                {resumes.length > 0 ? Math.round(resumes.reduce((acc, r) => acc + (r.atsScore || 0), 0) / resumes.length) : 0}%
+              </span>
+              <span className="text-blue-400 text-sm font-semibold">Average</span>
             </div>
           </GlassCard>
           <GlassCard hoverEffect>
@@ -117,26 +145,35 @@ const RecruiterPage = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {filteredCandidates.map((candidate) => (
+                    {loading ? (
+                      <tr>
+                        <td colSpan="4" className="text-center py-8 text-slate-400">Loading resumes...</td>
+                      </tr>
+                    ) : filteredCandidates.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="text-center py-8 text-slate-400">No resumes found matching your criteria.</td>
+                      </tr>
+                    ) : (
+                      filteredCandidates.map((candidate) => (
                       <tr key={candidate.id} className="hover:bg-white/5 transition-colors group">
                         <td className="px-6 py-4">
-                          <div className="font-semibold text-white group-hover:text-blue-400 transition-colors">{candidate.name}</div>
+                          <div className="font-semibold text-white group-hover:text-blue-400 transition-colors">{candidate.filename || "Unknown Candidate"}</div>
                           <div className="text-xs text-slate-500 flex gap-2 mt-1">
-                            {candidate.skills.slice(0, 3).map(s => <span key={s}>• {s}</span>)}
+                            {Array.isArray(candidate.skills) ? candidate.skills.slice(0, 3).map(s => <span key={s}>• {s}</span>) : null}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-300">{candidate.role}</td>
-                        <td className="px-6 py-4 text-sm text-slate-300 text-center">{candidate.experience}y</td>
+                        <td className="px-6 py-4 text-sm text-slate-300">Applicant</td>
+                        <td className="px-6 py-4 text-sm text-slate-300 text-center">{candidate.experience || 0}y</td>
                         <td className="px-6 py-4 text-right">
                           <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                            candidate.atsScore >= 90 ? 'bg-green-500/20 text-green-400' : 
-                            candidate.atsScore >= 75 ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-500/20 text-slate-400'
+                            (candidate.atsScore || 0) >= 90 ? 'bg-green-500/20 text-green-400' : 
+                            (candidate.atsScore || 0) >= 75 ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-500/20 text-slate-400'
                           }`}>
-                            {candidate.atsScore}%
+                            {candidate.atsScore || 0}%
                           </span>
                         </td>
                       </tr>
-                    ))}
+                    )))}
                   </tbody>
                 </table>
               </div>
@@ -144,10 +181,13 @@ const RecruiterPage = () => {
           </div>
         </div>
 
-        <UploadGate 
-          isOpen={isGateOpen} 
-          onClose={() => setIsGateOpen(false)} 
-          message="Please login or sign up to upload resumes and start classifying candidates."
+        <UploadModal 
+          isOpen={isUploadModalOpen} 
+          onClose={() => setIsUploadModalOpen(false)} 
+          onSuccess={() => {
+            setIsUploadModalOpen(false);
+            fetchResumes();
+          }}
         />
       </div>
     </DashboardLayout>
