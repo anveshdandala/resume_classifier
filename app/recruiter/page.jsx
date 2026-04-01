@@ -1,17 +1,40 @@
-"use client"
-import React, { useState, useMemo, useEffect } from 'react';
-import GlassCard from '@/components/dashboard/GlassCard';
-import UploadModal from '@/components/dashboard/UploadModal';
-import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import { SKILL_OPTIONS } from './constants';
-import { useAuth } from '@/components/context/AuthContext';
+"use client";
+import React, { useState, useMemo, useEffect } from "react";
+import GlassCard from "@/components/dashboard/GlassCard";
+import UploadModal from "@/components/dashboard/UploadModal";
+import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import CandidateCard from "@/components/dashboard/CandidateCard";
+import { SKILL_OPTIONS } from "./constants";
+import { useAuth } from "@/components/context/AuthContext";
+import {
+  Search,
+  Filter,
+  ArrowUpDown,
+  ChevronDown,
+  ChevronUp,
+  Briefcase,
+  Upload,
+  Users,
+  FileText,
+  CheckCircle2,
+  Star,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+const scoreColor = (n) =>
+  n >= 80 ? "text-emerald-400" : n >= 60 ? "text-amber-400" : "text-rose-400";
 
 const RecruiterPage = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [filterSkill, setFilterSkill] = useState('All Skills');
-  const [minScore, setMinScore] = useState(0);
   const [resumes, setResumes] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Filter/Sort State
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
+  const [minScore, setMinScore] = useState(0);
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortDir, setSortDir] = useState("desc");
 
   const { user, token } = useAuth();
 
@@ -19,9 +42,12 @@ const RecruiterPage = () => {
     if (!token) return;
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/resume/my`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/resume/my`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (response.ok) {
         const data = await response.json();
         setResumes(data.length > 0 ? data : []);
@@ -34,164 +60,285 @@ const RecruiterPage = () => {
   };
 
   useEffect(() => {
-    if (token) {
-      fetchResumes();
-    }
+    if (token) fetchResumes();
   }, [token]);
 
-  const filteredCandidates = useMemo(() => {
-    return resumes.filter(c => {
-      const cSkills = Array.isArray(c.skills) ? c.skills : [];
-      const matchSkill = filterSkill === 'All Skills' || cSkills.includes(filterSkill);
-      const matchScore = (c.atsScore || 0) >= minScore;
-      return matchSkill && matchScore;
+  const allRoles = [
+    "ALL",
+    ...Array.from(new Set(resumes.map((r) => r.role).filter(Boolean))),
+  ];
+
+  const processed = useMemo(() => {
+    return resumes
+      .filter((r) => {
+        const q = search.toLowerCase();
+        const rSkills = Array.isArray(r.skills) ? r.skills : [];
+        const matchesSearch =
+          !q ||
+          (r.filename || "").toLowerCase().includes(q) ||
+          (r.role || "").toLowerCase().includes(q) ||
+          rSkills.some((s) => s.toLowerCase().includes(q));
+
+        const matchesRole = roleFilter === "ALL" || r.role === roleFilter;
+        const matchesScore = (r.atsScore || 0) >= minScore;
+
+        return matchesSearch && matchesRole && matchesScore;
+      })
+      .sort((a, b) => {
+        const dir = sortDir === "asc" ? 1 : -1;
+        if (sortBy === "atsScore")
+          return ((a.atsScore || 0) - (b.atsScore || 0)) * dir;
+        if (sortBy === "experience")
+          return ((a.experience || 0) - (b.experience || 0)) * dir;
+        return (new Date(a.createdAt) - new Date(b.createdAt)) * dir;
+      });
+  }, [resumes, search, roleFilter, minScore, sortBy, sortDir]);
+
+  const avgAts = resumes.length
+    ? Math.round(
+        resumes.reduce((s, r) => s + (r.atsScore || 0), 0) / resumes.length,
+      )
+    : 0;
+
+  const topSkill = useMemo(() => {
+    if (!resumes.length) return { name: "—", count: 0 };
+    const freq = {};
+    resumes.forEach((r) => {
+      if (Array.isArray(r.skills))
+        r.skills.forEach((s) => (freq[s] = (freq[s] || 0) + 1));
     });
-  }, [filterSkill, minScore, resumes]);
+    const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+    return sorted.length > 0
+      ? { name: sorted[0][0], count: sorted[0][1] }
+      : { name: "—", count: 0 };
+  }, [resumes]);
+
+  const toggleSort = (field) => {
+    if (sortBy === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortBy(field);
+      setSortDir("desc");
+    }
+  };
 
   return (
     <DashboardLayout>
-      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-bold text-white tracking-tight">Recruiter Dashboard</h1>
-            <p className="text-slate-400 mt-1">Manage and analyze your candidate pipeline with AI.</p>
+      <div className="max-w-6xl mx-auto space-y-8 pb-16">
+        {/* ── header ── */}
+        <motion.header
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col md:flex-row md:items-end justify-between gap-6 pt-2"
+        >
+          <div className="space-y-2">
+            <h1 className="text-4xl font-extrabold text-white tracking-tight">
+              Candidate Pipeline
+            </h1>
+            <p className="text-lg text-slate-400">
+              Manage, filter, and analyze applicants with AI.
+            </p>
           </div>
-          <button 
+          <button
             onClick={() => setIsUploadModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2"
+            className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 shrink-0"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-            Upload Resumes
+            <Upload className="w-5 h-5" />
+            Batch Upload
           </button>
-        </header>
+        </motion.header>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <GlassCard hoverEffect>
-            <p className="text-slate-400 text-sm font-medium">Total Resumes</p>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-white">{resumes.length}</span>
-              <span className="text-green-400 text-sm font-semibold">Loaded</span>
-            </div>
-          </GlassCard>
-          <GlassCard hoverEffect>
-            <p className="text-slate-400 text-sm font-medium">Avg. ATS Score</p>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-white">
-                {resumes.length > 0 ? Math.round(resumes.reduce((acc, r) => acc + (r.atsScore || 0), 0) / resumes.length) : 0}%
-              </span>
-              <span className="text-blue-400 text-sm font-semibold">Average</span>
-            </div>
-          </GlassCard>
-          <GlassCard hoverEffect>
-            <p className="text-slate-400 text-sm font-medium">Top Skill Detected</p>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-white">React</span>
-              <span className="text-slate-500 text-sm">450 candidates</span>
-            </div>
-          </GlassCard>
-        </div>
+        {/* ── stats ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="flex flex-wrap gap-4"
+        >
+          <StatPill
+            label="Total Candidates"
+            value={resumes.length}
+            accent="text-white"
+            subtext="in database"
+          />
+          <StatPill
+            label="Avg ATS Score"
+            value={`${avgAts}%`}
+            accent={scoreColor(avgAts)}
+            subtext="across pipeline"
+          />
+          <StatPill
+            label="Top Skill"
+            value={topSkill.name}
+            accent="text-blue-400"
+            subtext={`${topSkill.count} occurrences`}
+          />
+        </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <aside className="lg:col-span-1 space-y-6">
-            <GlassCard className="sticky top-24">
-              <h2 className="text-lg font-semibold mb-4 text-white">Filters</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Skillset</label>
-                  <select 
-                    value={filterSkill}
-                    onChange={(e) => setFilterSkill(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-slate-200 outline-none focus:border-blue-500 transition-colors"
-                  >
-                    {SKILL_OPTIONS.map(opt => <option key={opt} value={opt} className="bg-slate-900">{opt}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Min ATS Score: {minScore}%</label>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="100" 
-                    value={minScore} 
-                    onChange={(e) => setMinScore(parseInt(e.target.value))}
-                    className="w-full h-2 bg-white/5 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                  />
-                </div>
-                <div className="pt-4 border-t border-white/5">
-                  <button 
-                    onClick={() => { setFilterSkill('All Skills'); setMinScore(0); }}
-                    className="text-sm text-blue-400 hover:text-blue-300 font-medium"
-                  >
-                    Reset Filters
-                  </button>
-                </div>
+        {/* ── filters & list ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="space-y-4"
+        >
+          {/* filter bar */}
+          <div className="p-4 rounded-2xl border border-white/8 bg-slate-900/60 backdrop-blur-sm flex flex-col xl:flex-row gap-4 xl:items-center justify-between">
+            <div className="flex flex-wrap gap-3 items-center flex-1">
+              {/* Search */}
+              <div className="relative flex-1 min-w-[200px] max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search names, skills, or roles…"
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-800/80 border border-white/8 text-slate-200 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                />
               </div>
-            </GlassCard>
-          </aside>
 
-          <div className="lg:col-span-3">
-            <GlassCard className="p-0 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-white/10 bg-white/5">
-                      <th className="px-6 py-4 text-sm font-semibold text-slate-400">Candidate</th>
-                      <th className="px-6 py-4 text-sm font-semibold text-slate-400">Role</th>
-                      <th className="px-6 py-4 text-sm font-semibold text-slate-400 text-center">Exp</th>
-                      <th className="px-6 py-4 text-sm font-semibold text-slate-400 text-right">ATS Score</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {loading ? (
-                      <tr>
-                        <td colSpan="4" className="text-center py-8 text-slate-400">Loading resumes...</td>
-                      </tr>
-                    ) : filteredCandidates.length === 0 ? (
-                      <tr>
-                        <td colSpan="4" className="text-center py-8 text-slate-400">No resumes found matching your criteria.</td>
-                      </tr>
-                    ) : (
-                      filteredCandidates.map((candidate) => (
-                      <tr key={candidate.id} className="hover:bg-white/5 transition-colors group">
-                        <td className="px-6 py-4">
-                          <div className="font-semibold text-white group-hover:text-blue-400 transition-colors">{candidate.filename || "Unknown Candidate"}</div>
-                          <div className="text-xs text-slate-500 flex gap-2 mt-1">
-                            {Array.isArray(candidate.skills) ? candidate.skills.slice(0, 3).map(s => <span key={s}>• {s}</span>) : null}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-300">Applicant</td>
-                        <td className="px-6 py-4 text-sm text-slate-300 text-center">{candidate.experience || 0}y</td>
-                        <td className="px-6 py-4 text-right">
-                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                            (candidate.atsScore || 0) >= 90 ? 'bg-green-500/20 text-green-400' : 
-                            (candidate.atsScore || 0) >= 75 ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-500/20 text-slate-400'
-                          }`}>
-                            {candidate.atsScore || 0}%
-                          </span>
-                        </td>
-                      </tr>
-                    )))}
-                  </tbody>
-                </table>
+              {/* Role */}
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+                <select
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                  className="pl-8 pr-8 py-2.5 rounded-xl bg-slate-800/80 border border-white/8 text-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 appearance-none cursor-pointer"
+                >
+                  {allRoles.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
               </div>
-            </GlassCard>
+
+              {/* Slider */}
+              <div className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-xl border border-white/5 min-w-[200px]">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                  Min ATS:{" "}
+                  <span className={scoreColor(minScore)}>{minScore}%</span>
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={minScore}
+                  onChange={(e) => setMinScore(parseInt(e.target.value))}
+                  className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Sort Buttons */}
+            <div className="flex gap-2">
+              {[
+                { label: "Date", field: "createdAt" },
+                { label: "ATS", field: "atsScore" },
+                { label: "Exp", field: "experience" },
+              ].map(({ label, field }) => (
+                <button
+                  key={field}
+                  onClick={() => toggleSort(field)}
+                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${
+                    sortBy === field
+                      ? "bg-blue-600/20 border-blue-500/40 text-blue-300"
+                      : "bg-slate-800/80 border-white/8 text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {label}
+                  <ArrowUpDown className="w-3 h-3" />
+                  {sortBy === field && (
+                    <span>{sortDir === "desc" ? "↓" : "↑"}</span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <UploadModal 
-          isOpen={isUploadModalOpen} 
-          onClose={() => setIsUploadModalOpen(false)} 
-          onSuccess={() => {
-            setIsUploadModalOpen(false);
-            fetchResumes();
-          }}
-        />
+          {/* list */}
+          <div className="space-y-3 pt-2">
+            {loading ? (
+              <div className="text-center py-20">
+                <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3" />
+                <p className="text-slate-400 text-sm">Loading candidates…</p>
+              </div>
+            ) : processed.length > 0 ? (
+              <AnimatePresence mode="popLayout">
+                {processed.map((candidate, i) => (
+                  <CandidateCard
+                    key={candidate.id}
+                    candidate={candidate}
+                    index={i}
+                  />
+                ))}
+              </AnimatePresence>
+            ) : resumes.length > 0 ? (
+              <div className="text-center py-16 rounded-2xl border border-dashed border-white/10">
+                <Search className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-400 font-semibold">
+                  No candidates match your filters
+                </p>
+                <button
+                  onClick={() => {
+                    setSearch("");
+                    setRoleFilter("ALL");
+                    setMinScore(0);
+                  }}
+                  className="mt-3 text-sm text-blue-400 hover:underline"
+                >
+                  Clear filters
+                </button>
+              </div>
+            ) : (
+              <div className="text-center py-24 rounded-2xl border border-dashed border-white/10">
+                <Briefcase className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-slate-400">
+                  Your pipeline is empty
+                </h3>
+                <p className="text-slate-500 text-sm mt-1 mb-6">
+                  Upload candidate resumes to begin analysis.
+                </p>
+                <button
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="bg-white/10 hover:bg-white/15 text-white px-6 py-2.5 rounded-xl font-semibold transition-all"
+                >
+                  Upload Resumes
+                </button>
+              </div>
+            )}
+          </div>
+        </motion.div>
       </div>
+
+      <UploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onSuccess={() => {
+          setIsUploadModalOpen(false);
+          fetchResumes();
+        }}
+      />
     </DashboardLayout>
   );
 };
+
+const StatPill = ({ label, value, accent, subtext }) => (
+  <div className="flex flex-col items-center px-6 py-4 rounded-2xl bg-slate-900/60 backdrop-blur-sm border border-white/10 min-w-[140px] flex-1">
+    <span className={`text-3xl font-black ${accent}`}>{value}</span>
+    <span className="text-xs uppercase tracking-widest text-slate-500 mt-1 font-semibold">
+      {label}
+    </span>
+    {subtext && (
+      <span className="text-[10px] text-slate-600 mt-1">{subtext}</span>
+    )}
+  </div>
+);
+
+const SkillChip = ({ skill }) => (
+  <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-full bg-slate-800 text-slate-400 border border-white/5">
+    {skill}
+  </span>
+);
 
 export default RecruiterPage;
